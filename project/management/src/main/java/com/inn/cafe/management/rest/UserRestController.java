@@ -31,4 +31,15 @@ public class UserRestController {
 		}
 		return CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG, HttpStatus.INTERNAL_SERVER_ERROR);
 	}
+
+	@PostMapping(path = "/login")
+	public ResponseEntity<String> login(@RequestBody(required = true) Map<String, String> requestMap) {
+		try {
+			return service.login(requestMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG, HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
 }

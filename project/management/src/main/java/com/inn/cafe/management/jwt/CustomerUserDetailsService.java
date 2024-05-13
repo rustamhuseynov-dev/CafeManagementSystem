@@ -35,7 +35,7 @@ public class CustomerUserDetailsService implements UserDetailsService {
 	}
 
 	public com.inn.cafe.management.entity.User getUserDetail() {
-
+           return userDetail;
 	}
 
 }
