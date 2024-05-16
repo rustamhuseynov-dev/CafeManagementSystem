@@ -1,7 +1,10 @@
 package com.inn.cafe.management.serviceImpl;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +21,8 @@ import com.inn.cafe.management.jwt.JwtAuthFilter;
 import com.inn.cafe.management.jwt.JwtService;
 import com.inn.cafe.management.service.UserService;
 import com.inn.cafe.management.utils.CafeUtils;
+import com.inn.cafe.management.utils.EmailUtils;
+import com.inn.cafe.management.wrapper.UserWrapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +40,9 @@ public class UserServiceImpl implements UserService {
 	
 	private final JwtService jwtService;
 
+	private final JwtAuthFilter  jwtAuthFilter;
+	
+	private final EmailUtils emailUtils;
 	@Override
 	public ResponseEntity<String> signUp(Map<String, String> requestMap) {
 		log.info("Inside signup {}", requestMap);
@@ -102,6 +110,54 @@ public class UserServiceImpl implements UserService {
 		}
 		return new ResponseEntity<String>("{\"message\":\""+"Bad Credentials."+"\"}",
 				HttpStatus.BAD_REQUEST);
+	}
+	
+	@Override
+	public ResponseEntity<List<UserWrapper>> getAllUser() {
+		try {
+			if (jwtAuthFilter.isAdmin()) {
+				return new ResponseEntity<>(dao.getAllUser(),HttpStatus.OK);
+			}else {
+				return new ResponseEntity<>(new ArrayList<>(),HttpStatus.UNAUTHORIZED);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ResponseEntity<>(new ArrayList<>(),HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+	
+	@Override
+	public ResponseEntity<String> update(Map<String, String> requestMap) {
+		try {
+			if (jwtAuthFilter.isAdmin()) {
+				Optional<User> optional = dao.findById(Integer.parseInt(requestMap.get("id")));
+				if (optional.isPresent()) {
+					dao.updateStatus(requestMap.get("status"),Integer.parseInt(requestMap.get("id")));
+					sendMailToAllAdmin(requestMap.get("status"),optional.get().getEmail(),dao.getAllAdmin());
+					return CafeUtils.getResponseEntity("User status updated successfully.", HttpStatus.OK);
+				}
+				else {
+					return CafeUtils.getResponseEntity("User id doesn`t not exist", HttpStatus.OK);
+				}
+			}
+			else {
+				return CafeUtils.getResponseEntity(CafeConstants.UNAUTHORIZED_ACCESS, HttpStatus.UNAUTHORIZED);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG, HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+	private void sendMailToAllAdmin(String status, String user, List<String> allAdmin) {
+		allAdmin.remove(jwtAuthFilter.getCurrentUser());
+		if (status != null && status.equalsIgnoreCase("true")) {
+			emailUtils.sendSimpleMessage(jwtAuthFilter.getCurrentUser(),"Account Approved","USER:-"+user+"\n is approved by \nADMIN:-"+jwtAuthFilter.getCurrentUser(),allAdmin);
+		}
+		else {
+			emailUtils.sendSimpleMessage(jwtAuthFilter.getCurrentUser(),"Account Disabled","USER:-"+user+"\n is disabled by \nADMIN:-"+jwtAuthFilter.getCurrentUser(),allAdmin);
+		}
+		
 	}
 
 }
